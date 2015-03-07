@@ -24,7 +24,7 @@ LD:=gcc
 
 CFLAGS += -pipe -W -Wall -std=c99
 CFLAGS += -g -Os -finline-functions $(shell sdl-config --cflags)
-LIBS = $(shell sdl-config --libs) -lSDL_ttf
+LIBS = -lm $(shell sdl-config --libs) -lSDL_ttf
 
 
 $(TARGET): $(OBJ)

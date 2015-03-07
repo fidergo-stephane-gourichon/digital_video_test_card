@@ -1,13 +1,28 @@
 /*
- * Copyright (C) 2009 Väinö Helminen
+ * Test Card - A test pattern generator for computer displays
  *
- * $Id: testcard.c,v 1.3 2009-03-16 06:30:13 vah Exp $
+ * Copyright (C) 2009-2015 Väinö Helminen <vah78@yahoo.com>
+ *
+ * The main purpose of this program is to see you get an unscaled
+ * perfect image on your computer display (e.g. a TV) and check how
+ * much, if any, overscan there is. You will also get see if the
+ * colors at least in the right ball park and if the pixels are square
+ * or squeezed in some way. As a bonus you can try to estimate your
+ * display's gamma value.
+ *
+ * The provided Makefile should just work on your ordinary Linux
+ * desktop when you run "make" but because this is a just a single
+ * source file with SDL2 and SDL_ttf as dependencies I guess you can
+ * figure out how to compile if it doesn't.
+ *
+ * This program is licensed under the GPL2 and the full license text
+ * should have been included with the source code (see file COPYING).
  */
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "SDL.h"
-#include "SDL_ttf.h"
+#include <SDL.h>
+#include <SDL_ttf.h>
 
 static inline SDL_Surface* setVideoMode(int fullscreen, int width, int height, int d)
 {
@@ -94,7 +109,7 @@ static inline void borders(SDL_Surface *surface, int s)
   rasterRect(surface, 3*s+1, h-2*s, w-6*s-2, 2*s, white, black);
   rasterRect(surface, 0, 3*s+1, 2*s, h-6*s-2, white, black);
   rasterRect(surface, w-2*s, 3*s+1, 2*s, h-6*s-2, white, black);
-  
+
   // top-left corner
   fillRect(surface, 0, 0, 3*s+1, 3*s+1, black);
   fillRect(surface,   1,   0, 3*s-1,     1, white);
@@ -103,7 +118,7 @@ static inline void borders(SDL_Surface *surface, int s)
   fillRect(surface,   0,   1,     1, 3*s-1, white);
   fillRect(surface,   1, 1*s,     1,   2*s, white);
   fillRect(surface,   2, 2*s,     1,   1*s, white);
-  
+
   // bottom-left corner
   fillRect(surface, 0, h-3*s-1, 3*s+1, 3*s+1, black);
   fillRect(surface,   1,   h-1, 3*s-1,     1, white);
@@ -171,7 +186,7 @@ static inline void gammaTable(SDL_Surface *surface, int x, int y, int w, int h)
     Uint32 gray = SDL_MapRGB(surface->format, shade, shade, shade);
     x += 2*s;
     fillRect(surface,  x, y, 2*s, 3*s, gray);
-    
+
     char buf[10];
     sprintf(buf, "%1.1f", gamma);
     SDL_Surface *text = TTF_RenderText_Blended(font, buf, whiteColor);
@@ -278,7 +293,7 @@ static void drawCircle(SDL_Surface *surface, int cx, int cy, int radius, int siz
 {
   int x = 0, y = radius, p = (5-radius*4)/4;
   circlePoints(surface, cx, cy, x, y, size, color);
-  while(x < y) { 
+  while(x < y) {
     ++x;
     if(p < 0) {
       p += 2*x+1;
@@ -298,7 +313,7 @@ static inline void copyright(SDL_Surface *surface)
     return;
   }
   SDL_Color grayColor = {180,180,180,0}, blueColor = {0,0,255,0};
-  SDL_Surface *text = TTF_RenderUTF8_Shaded(font, "Copyright © 2009 Väinö Helminen", blueColor, grayColor);
+  SDL_Surface *text = TTF_RenderUTF8_Shaded(font, "Copyright © 2009-2015 Väinö Helminen", blueColor, grayColor);
   if(!text) fprintf(stderr, "TTF_Render: %s\n", TTF_GetError());
   TTF_CloseFont(font);
   if(!text) return;
@@ -324,7 +339,7 @@ static inline void bigCircle(SDL_Surface *surface)
 
 static inline void overscan(SDL_Surface *surface)
 {
-  int w = surface->w, h = surface->h;  
+  int w = surface->w, h = surface->h;
   int w5 = (w+10)/20, w10 = (w+5)/10, h5 = (h+10)/20, h10 = (h+5)/10;
   Uint32 black = SDL_MapRGB(surface->format, 0, 0, 0),
     green = SDL_MapRGB(surface->format, 0, 255, 0), yellow = SDL_MapRGB(surface->format, 255, 255, 0);
@@ -419,6 +434,8 @@ static inline void render(SDL_Surface *surface)
 
 int main(int argc, char **argv)
 {
+  fprintf(stdout, "Test Card - Copyright (C) 2009-2015 Vaino Helminen\n");
+
   if(SDL_Init(SDL_INIT_VIDEO)) {
     fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
     return EXIT_FAILURE;
@@ -451,7 +468,7 @@ int main(int argc, char **argv)
     } else if(width < 0 && sscanf(argv[i], "%dx%d", &width, &height) == 2 && width > 0 && height > 0) {
       continue;
     }
-    fprintf(stderr, "Invalid argument: %s\n", argv[i]);
+    fprintf(stderr, "\nInvalid argument: %s\n\nUsage: %s [-q] [-s] [-w] [<width>x<height>]\n\t-q\tQuit immediately (use with -s)\n\t-s\tSave image as <width>x<height>.bmp\n\t-w\tRun in window instead of fullscreen\n\t<width>x<height> Use the given resolution instead of the highest available\n\nKeys:\tUp / +\tSwitch to a higher resolution (loops to lowest)\n\tDown / -\tSwitch to a lower resolution (loops to highest)\n\ts\tSave a screenshot\n\tEsc / q\tQuit\n", argv[i], argv[0]);
     return EXIT_FAILURE;
   }
 
@@ -472,6 +489,8 @@ int main(int argc, char **argv)
       sprintf(buf, "%dx%d.bmp", (int)screen->w, (int)screen->h);
       if(SDL_SaveBMP(screen, buf)) {
 	fprintf(stderr, "SDL_SaveBMP: %s\n", SDL_GetError());
+      } else {
+        fprintf(stdout, "Saved a screenshot to %s\n", buf);
       }
       savebmp = 0;
     }
