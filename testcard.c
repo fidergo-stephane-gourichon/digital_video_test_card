@@ -275,11 +275,13 @@ static inline void BWLinesBar(SDL_Surface *surface, int x, int y, int w, int h)
   int s = w/8;
   x += (w - 8*s)/2;
   for(int l = 1; l <= 4; ++l) {
-    vLineRect(surface, l, x, y, s, h, white, black);
+    vLineRect(surface, l, x, y, s, h/2, white, black);
+    vLineRect(surface, l, x+1, y+h/2, s-1, h/2, white, black);
     x += s;
   }
   for(int l = 4; l >= 1; --l) {
-    hLineRect(surface, l, x, y, s, h, white, black);
+    hLineRect(surface, l, x, y, s/2, h, white, black);
+    hLineRect(surface, l, x+s/2, y+1, s/2, h-1, white, black);
     x += s;
   }
 }
@@ -302,7 +304,7 @@ static inline void colorRects(SDL_Surface *surface, int x, int y, int w, int h)
     colors[i] = SDL_MapRGB(surface->format, rgb[i][0], rgb[i][1], rgb[i][2]);
   }
 
-  fillRect(surface, 0, y, surface->w, h, colors[0]);
+  fillRect(surface, 0, 0, surface->w, y+h, colors[0]);
 
   int rw = w/8;
   x += (w - 7*rw)/2;
@@ -347,6 +349,133 @@ static void drawCircle(SDL_Surface *surface, int cx, int cy, int radius, int siz
     }
     circlePoints(surface, cx, cy, x, y, size, color);
   }
+}
+
+
+static void subsampleRect(SDL_Surface *surface, int x, int y, int w, int h, Uint32 color1, Uint32 color2, Uint32 color3)
+{
+  int w6 = w/6;
+  int h6 = h/6;
+  rasterRect(surface, x, y, w, h, color1, color2);
+  vLineRect(surface, 1, x+2*w6, y+w6, 3*w6, h6, color1, color2);
+  hLineRect(surface, 1, x+w6, y+2*w6, w6, 3*h6, color1, color2);
+  fillRect(surface, x+3*w6, y+3*h6, 2*w6, 2*h6, color3);
+}
+
+static void subsampleVLines(SDL_Surface *surface, int x, int y, int w, int h, Uint32 color0, Uint32 color1, Uint32 color2, Uint32 color3, Uint32 color4)
+{
+  fillRect(surface, x, y, w, h, color0);
+  w += x;
+  h /= 4;
+  for (++x; x < w; x += 3) {
+    fillRect(surface, x, y+1, 1, h-2, color1);
+    fillRect(surface, x, y+1+h, 1, h-2, color2);
+    fillRect(surface, x, y+1+2*h, 1, h-2, color3);
+    fillRect(surface, x, y+1+3*h, 1, h-2, color4);
+  }
+}
+
+static void subsampleHLines(SDL_Surface *surface, int x, int y, int w, int h, Uint32 color0, Uint32 color1, Uint32 color2, Uint32 color3, Uint32 color4)
+{
+  fillRect(surface, x, y, w, h, color0);
+  h += y;
+  w /= 4;
+  for (++y; y < h; y += 3) {
+    fillRect(surface, x+1, y, w-2, 1, color1);
+    fillRect(surface, x+1+w, y, w-2, 1, color2);
+    fillRect(surface, x+1+2*w, y, w-2, 1, color3);
+    fillRect(surface, x+1+3*w, y, w-2, 1, color4);
+  }
+}
+
+static void colorSubsampling(SDL_Surface *surface, int x, int y, int w, int h)
+{
+  int w8 = mini(h, w/12);
+  int m = (w - 12*w8)/2;
+
+  // horizontal lines
+  subsampleHLines(surface, x+0*w8, y, w8, h,
+                  SDL_MapRGB(surface->format, 0,0,0),
+                  SDL_MapRGB(surface->format, 255,255,255),
+                  SDL_MapRGB(surface->format, 255,0,0),
+                  SDL_MapRGB(surface->format, 0,255,0),
+                  SDL_MapRGB(surface->format, 0,0,255));
+
+  subsampleHLines(surface, x+1*w8, y, w8, h,
+                  SDL_MapRGB(surface->format, 255,0, 0),
+                  SDL_MapRGB(surface->format, 255,255,255),
+                  SDL_MapRGB(surface->format, 0,255,255),
+                  SDL_MapRGB(surface->format, 0,255,0),
+                  SDL_MapRGB(surface->format, 0,0,255));
+
+  subsampleHLines(surface, x+2*w8, y, w8, h,
+                  SDL_MapRGB(surface->format, 0,255,0),
+                  SDL_MapRGB(surface->format, 255,255,255),
+                  SDL_MapRGB(surface->format, 255,0,0),
+                  SDL_MapRGB(surface->format, 255,0,255),
+                  SDL_MapRGB(surface->format, 0,0,255));
+
+  subsampleHLines(surface, x+3*w8, y, w8, h,
+                  SDL_MapRGB(surface->format, 0,0,255),
+                  SDL_MapRGB(surface->format, 255,255,255),
+                  SDL_MapRGB(surface->format, 255,0,0),
+                  SDL_MapRGB(surface->format, 0,255,0),
+                  SDL_MapRGB(surface->format, 255,255,0));
+
+  x += m;
+
+  // quick indicators
+  subsampleRect(surface, x+4*w8, y, w8, h,
+                SDL_MapRGB(surface->format, 255,255,255),
+                SDL_MapRGB(surface->format, 0,0,0),
+                SDL_MapRGB(surface->format, 128,128,128));
+
+  subsampleRect(surface, x+5*w8, y, w8, h,
+                SDL_MapRGB(surface->format, 255,0,0),
+                SDL_MapRGB(surface->format, 0,0,255),
+                SDL_MapRGB(surface->format, 128,0,128));
+
+  subsampleRect(surface, x+6*w8, y, w8, h,
+                SDL_MapRGB(surface->format, 0,0,255),
+                SDL_MapRGB(surface->format, 0,255,0),
+                SDL_MapRGB(surface->format, 0,146,146));
+
+  subsampleRect(surface, x+7*w8, y, w8, h,
+                SDL_MapRGB(surface->format, 0,255,0),
+                SDL_MapRGB(surface->format, 255,0,0),
+                SDL_MapRGB(surface->format, 132,132,0));
+
+  x += m;
+  // vertical lines
+  subsampleVLines(surface, x+8*w8, y, w8, h,
+                  SDL_MapRGB(surface->format, 0,0,255),
+                  SDL_MapRGB(surface->format, 255,255,255),
+                  SDL_MapRGB(surface->format, 255,0,0),
+                  SDL_MapRGB(surface->format, 0,255,0),
+                  SDL_MapRGB(surface->format, 255,255,0));
+
+  subsampleVLines(surface, x+9*w8, y, w8, h,
+                  SDL_MapRGB(surface->format, 0,255,0),
+                  SDL_MapRGB(surface->format, 255,255,255),
+                  SDL_MapRGB(surface->format, 255,0,0),
+                  SDL_MapRGB(surface->format, 255,0,255),
+                  SDL_MapRGB(surface->format, 0,0,255));
+
+  subsampleVLines(surface, x+10*w8, y, w8, h,
+                  SDL_MapRGB(surface->format, 255,0, 0),
+                  SDL_MapRGB(surface->format, 255,255,255),
+                  SDL_MapRGB(surface->format, 0,255,255),
+                  SDL_MapRGB(surface->format, 0,255,0),
+                  SDL_MapRGB(surface->format, 0,0,255));
+
+  subsampleVLines(surface, x+11*w8, y, w8, h,
+                  SDL_MapRGB(surface->format, 0,0,0),
+                  SDL_MapRGB(surface->format, 255,255,255),
+                  SDL_MapRGB(surface->format, 255,0,0),
+                  SDL_MapRGB(surface->format, 0,255,0),
+                  SDL_MapRGB(surface->format, 0,0,255));
+
+
 }
 
 static inline void copyright(SDL_Surface *surface)
@@ -498,17 +627,18 @@ static inline void render(SDL_Surface *surface)
   int w = surface->w - 2*x;
   int m = surface->h / 70;
   int hh = surface->h - 2*x - 4*m;
-  int h = hh / 5;
-  int y = x + (hh - 5*h)/2;
+  int h = hh / 12;
+  int y = x + (hh - 12*h)/2;
   SDL_FillRect(surface, NULL, background);
-  colorRects  (surface, x, y + 0*h + 0*m, w, h);
+  colorRects  (surface, x, 0, w, y + h);
   borders(surface, x);
   copyright(surface);
-  imageInfo   (surface, x, y + 2*h + 2*m, w, h);
-  BWLinesBar  (surface, x, y + 4*h + 4*m, w, h);
+  colorSubsampling(surface, x, y + 1*h + 1*m, w, 2*h);
+  imageInfo   (surface, x, y + 5*h + 3*m, w, 2*h);
+  BWLinesBar  (surface, x, y + 10*h + 5*m, w, 2*h);
   bigCircle(surface);
-  gammaTable  (surface, x, y + 1*h + 1*m, w, h);
-  RGBGradients(surface, x, y + 3*h + 3*m, w, h);
+  gammaTable  (surface, x, y + 3*h + 2*m, w, 2*h);
+  RGBGradients(surface, x, y + 8*h + 4*m, w, 2*h);
   overscan(surface);
 }
 
