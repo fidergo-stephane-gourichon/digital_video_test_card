@@ -367,7 +367,7 @@ static void subsampleVLines(SDL_Surface *surface, int x, int y, int w, int h, Ui
   fillRect(surface, x, y, w, h, color0);
   w += x;
   h /= 4;
-  for (++x; x < w; x += 3) {
+  for (++x; x < w; x += 2) {
     fillRect(surface, x, y+1, 1, h-2, color1);
     fillRect(surface, x, y+1+h, 1, h-2, color2);
     fillRect(surface, x, y+1+2*h, 1, h-2, color3);
@@ -380,7 +380,7 @@ static void subsampleHLines(SDL_Surface *surface, int x, int y, int w, int h, Ui
   fillRect(surface, x, y, w, h, color0);
   h += y;
   w /= 4;
-  for (++y; y < h; y += 3) {
+  for (++y; y < h; y += 2) {
     fillRect(surface, x+1, y, w-2, 1, color1);
     fillRect(surface, x+1+w, y, w-2, 1, color2);
     fillRect(surface, x+1+2*w, y, w-2, 1, color3);
