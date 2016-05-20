@@ -59,6 +59,29 @@ static inline int saturatei(int a, const int min, const int max)
   return a;
 }
 
+static void toYCbCr(SDL_PixelFormat *format, Uint32 rgb, Uint8 *y, Uint8 *cb, Uint8 *cr)
+{
+  Uint8 r8, g8, b8;
+  SDL_GetRGB(rgb, format, &r8, &g8, &b8);
+  int r = r8, g = g8, b = b8;
+  *y  = (1081344 + 11966*r + 40254*g + 4064*b)>>16;
+  *cb = (8421376 + -6596*r + -22189*g + 28784*b)>>16;
+  *cr = (8421376 + 28784*r + -26145*g + -2639*b)>>16;
+}
+
+static Uint32 mapYCbCr(SDL_PixelFormat *format, int y, int cb, int cr)
+{
+  y  -= 16;
+  cb -= 128;
+  cr -= 128;
+  return SDL_MapRGB(
+    format,
+    saturatei((32768 + 76309*y + 120171*cr)>>16, 0, 255),
+    saturatei((32768 + 74606*y + -13975*cb + -34925*cr)>>16, 0, 255),
+    saturatei((32768 + 74606*y + 138438*cb)>>16, 0, 255)
+  );
+}
+
 static SDL_Surface* setVideoMode(const int fullscreen, int width, int height, const int d)
 {
   static int mode = 0;
@@ -410,65 +433,27 @@ static void subsampleRect(SDL_Surface *surface, int x, int y, int w, int h, Uint
   fillRect(surface, x+3*w6, y+3*h6, 2*w6, 2*h6, color3);
 }
 
-static void subsampleVLines(SDL_Surface *surface, int x, int y, int w, int h, Uint32 color0, Uint32 color1, Uint32 color2, Uint32 color3, Uint32 color4)
-{
-  fillRect(surface, x, y, w, h, color0);
-  w += x;
-  h /= 4;
-  for (++x; x < w; x += 3) {
-    fillRect(surface, x, y+1, 1, h-2, color1);
-    fillRect(surface, x, y+1+h, 1, h-2, color2);
-    fillRect(surface, x, y+1+2*h, 1, h-2, color3);
-    fillRect(surface, x, y+1+3*h, 1, h-2, color4);
-  }
-}
-
-static void subsampleHLines(SDL_Surface *surface, int x, int y, int w, int h, Uint32 color0, Uint32 color1, Uint32 color2, Uint32 color3, Uint32 color4)
-{
-  fillRect(surface, x, y, w, h, color0);
-  h += y;
-  w /= 4;
-  for (++y; y < h; y += 3) {
-    fillRect(surface, x+1, y, w-2, 1, color1);
-    fillRect(surface, x+1+w, y, w-2, 1, color2);
-    fillRect(surface, x+1+2*w, y, w-2, 1, color3);
-    fillRect(surface, x+1+3*w, y, w-2, 1, color4);
-  }
-}
-
 static void colorSubsampling(SDL_Surface *surface, int x, int y, int w, int h)
 {
   int w8 = mini(h, w/12);
   int m = (w - 12*w8)/2;
 
   // horizontal lines
-  subsampleHLines(surface, x+0*w8, y, w8, h,
-                  SDL_MapRGB(surface->format, 0,0,0),
-                  SDL_MapRGB(surface->format, 255,255,255),
-                  SDL_MapRGB(surface->format, 255,0,0),
-                  SDL_MapRGB(surface->format, 0,255,0),
-                  SDL_MapRGB(surface->format, 0,0,255));
+  hLineRect(surface, 1, x+0*w8, y, w8, h,
+            mapYCbCr(surface->format, 128,192,192),
+            mapYCbCr(surface->format, 128,64,64));
 
-  subsampleHLines(surface, x+1*w8, y, w8, h,
-                  SDL_MapRGB(surface->format, 255,0, 0),
-                  SDL_MapRGB(surface->format, 255,255,255),
-                  SDL_MapRGB(surface->format, 0,255,255),
-                  SDL_MapRGB(surface->format, 0,255,0),
-                  SDL_MapRGB(surface->format, 0,0,255));
+  hLineRect(surface, 1, x+1*w8, y, w8, h,
+            mapYCbCr(surface->format, 128,128,192),
+            mapYCbCr(surface->format, 128,128,64));
 
-  subsampleHLines(surface, x+2*w8, y, w8, h,
-                  SDL_MapRGB(surface->format, 0,255,0),
-                  SDL_MapRGB(surface->format, 255,255,255),
-                  SDL_MapRGB(surface->format, 255,0,0),
-                  SDL_MapRGB(surface->format, 255,0,255),
-                  SDL_MapRGB(surface->format, 0,0,255));
+  hLineRect(surface, 1, x+2*w8, y, w8, h,
+            mapYCbCr(surface->format, 128,192,128),
+            mapYCbCr(surface->format, 128,64,128));
 
-  subsampleHLines(surface, x+3*w8, y, w8, h,
-                  SDL_MapRGB(surface->format, 0,0,255),
-                  SDL_MapRGB(surface->format, 255,255,255),
-                  SDL_MapRGB(surface->format, 255,0,0),
-                  SDL_MapRGB(surface->format, 0,255,0),
-                  SDL_MapRGB(surface->format, 255,255,0));
+  hLineRect(surface, 1, x+3*w8, y, w8, h,
+            SDL_MapRGB(surface->format, 64,64,64),
+            SDL_MapRGB(surface->format, 192,192,192));
 
   x += m;
 
@@ -495,35 +480,21 @@ static void colorSubsampling(SDL_Surface *surface, int x, int y, int w, int h)
 
   x += m;
   // vertical lines
-  subsampleVLines(surface, x+8*w8, y, w8, h,
-                  SDL_MapRGB(surface->format, 0,0,255),
-                  SDL_MapRGB(surface->format, 255,255,255),
-                  SDL_MapRGB(surface->format, 255,0,0),
-                  SDL_MapRGB(surface->format, 0,255,0),
-                  SDL_MapRGB(surface->format, 255,255,0));
+  vLineRect(surface, 1, x+8*w8, y, w8, h,
+            SDL_MapRGB(surface->format, 64,64,64),
+            SDL_MapRGB(surface->format, 192,192,192));
 
-  subsampleVLines(surface, x+9*w8, y, w8, h,
-                  SDL_MapRGB(surface->format, 0,255,0),
-                  SDL_MapRGB(surface->format, 255,255,255),
-                  SDL_MapRGB(surface->format, 255,0,0),
-                  SDL_MapRGB(surface->format, 255,0,255),
-                  SDL_MapRGB(surface->format, 0,0,255));
+  vLineRect(surface, 1, x+9*w8, y, w8, h,
+            mapYCbCr(surface->format, 128,192,128),
+            mapYCbCr(surface->format, 128,64,128));
 
-  subsampleVLines(surface, x+10*w8, y, w8, h,
-                  SDL_MapRGB(surface->format, 255,0, 0),
-                  SDL_MapRGB(surface->format, 255,255,255),
-                  SDL_MapRGB(surface->format, 0,255,255),
-                  SDL_MapRGB(surface->format, 0,255,0),
-                  SDL_MapRGB(surface->format, 0,0,255));
+  vLineRect(surface, 1, x+10*w8, y, w8, h,
+            mapYCbCr(surface->format, 128,128,192),
+            mapYCbCr(surface->format, 128,128,64));
 
-  subsampleVLines(surface, x+11*w8, y, w8, h,
-                  SDL_MapRGB(surface->format, 0,0,0),
-                  SDL_MapRGB(surface->format, 255,255,255),
-                  SDL_MapRGB(surface->format, 255,0,0),
-                  SDL_MapRGB(surface->format, 0,255,0),
-                  SDL_MapRGB(surface->format, 0,0,255));
-
-
+  vLineRect(surface, 1, x+11*w8, y, w8, h,
+            mapYCbCr(surface->format, 128,192,192),
+            mapYCbCr(surface->format, 128,64,64));
 }
 
 static inline void copyright(SDL_Surface *surface)
@@ -665,29 +636,6 @@ static inline void overscan(SDL_Surface *surface)
   }
 
   TTF_CloseFont(font);
-}
-
-static void toYCbCr(SDL_PixelFormat *format, Uint32 rgb, Uint8 *y, Uint8 *cb, Uint8 *cr)
-{
-  Uint8 r8, g8, b8;
-  SDL_GetRGB(rgb, format, &r8, &g8, &b8);
-  int r = r8, g = g8, b = b8;
-  *y  = (1081344 + 11966*r + 40254*g + 4064*b)>>16;
-  *cb = (8421376 + -6596*r + -22189*g + 28784*b)>>16;
-  *cr = (8421376 + 28784*r + -26145*g + -2639*b)>>16;
-}
-
-static Uint32 mapYCbCr(SDL_PixelFormat *format, int y, int cb, int cr)
-{
-  y  -= 16;
-  cb -= 128;
-  cr -= 128;
-  return SDL_MapRGB(
-    format,
-    saturatei((32768 + 76309*y + 120171*cr)>>16, 0, 255),
-    saturatei((32768 + 74606*y + -13975*cb + -34925*cr)>>16, 0, 255),
-    saturatei((32768 + 74606*y + 138438*cb)>>16, 0, 255)
-  );
 }
 
 static void blur422h(Uint8* const p, const int w, const int h)
