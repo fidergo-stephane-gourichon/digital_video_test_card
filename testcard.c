@@ -25,6 +25,23 @@
 #include <SDL.h>
 #include <SDL_ttf.h>
 
+
+#define MODE_RGB        0
+#define MODE_YCBCR_444  1
+#define MODE_YCBCR_422H 2
+#define MODE_YCBCR_422V 3
+#define MODE_YCBCR_420  4
+
+
+static const char * const MODE_NAME[] = {
+  "RGB",
+  "YCbCr 4:4:4",
+  "YCbCr 4:2:2 h",
+  "YCbCr 4:2:2 v",
+  "YCbCr 4:2:0",
+};
+
+
 static inline int maxi(int a, int b)
 {
   return a < b ? b : a;
@@ -35,7 +52,14 @@ static inline int mini(int a, int b)
   return a < b ? a : b;
 }
 
-static inline SDL_Surface* setVideoMode(int fullscreen, int width, int height, int d)
+static inline int saturatei(int a, const int min, const int max)
+{
+  if (a < min) return min;
+  if (a > max) return max;
+  return a;
+}
+
+static SDL_Surface* setVideoMode(const int fullscreen, int width, int height, const int d)
 {
   static int mode = 0;
   mode -= d;
@@ -55,7 +79,13 @@ static inline SDL_Surface* setVideoMode(int fullscreen, int width, int height, i
     height = modes[mode]->h;
   }
 
-  return SDL_SetVideoMode(width, height, 0, flags);
+  SDL_Surface *screen = SDL_SetVideoMode(width, height, 32, flags);
+  if(!screen) {
+    fprintf(stderr, "SDL_SetVideoMode(%d, %d): %s\n",
+            width, height, SDL_GetError());
+    exit(EXIT_FAILURE);
+  }
+  return screen;
 }
 
 static inline void fillRect(SDL_Surface *surface, int x, int y, int w, int h, Uint32 color)
@@ -216,8 +246,8 @@ static inline void gammaTable(SDL_Surface *surface, int x, int y, int w, int h)
         if(!text) {
           fprintf(stderr, "TTF_Render: %s\n", TTF_GetError());
         } else {
-          SDL_Rect blitrect = {x + (wb - text->w)/2, y+h-1, 0, 0};
-          SDL_BlitSurface(text, NULL, surface, &blitrect);
+          SDL_Rect rect = {x + (wb - text->w)/2, y+h-1, 0, 0};
+          SDL_BlitSurface(text, NULL, surface, &rect);
           SDL_FreeSurface(text);
         }
       }
@@ -227,8 +257,8 @@ static inline void gammaTable(SDL_Surface *surface, int x, int y, int w, int h)
         if(!text) {
           fprintf(stderr, "TTF_Render: %s\n", TTF_GetError());
         } else {
-          SDL_Rect blitrect = {x + (wb - text->w)/2, y+h, 0, 0};
-          SDL_BlitSurface(text, NULL, surface, &blitrect);
+          SDL_Rect rect = {x + (wb - text->w)/2, y+h, 0, 0};
+          SDL_BlitSurface(text, NULL, surface, &rect);
           SDL_FreeSurface(text);
         }
       }
@@ -242,7 +272,7 @@ static inline void gammaTable(SDL_Surface *surface, int x, int y, int w, int h)
   }
 }
 
-static inline void imageInfo(SDL_Surface *surface, int x, int y, int w, int h)
+static inline void imageInfo(SDL_Surface *surface, int x, int y, int w, int h, int mode)
 {
   TTF_Font *font = TTF_OpenFont("Vera.ttf", maxi(h/2, 8));
   if(!font) {
@@ -255,16 +285,34 @@ static inline void imageInfo(SDL_Surface *surface, int x, int y, int w, int h)
   SDL_Color whiteColor = {255, 255, 255, 0};
   SDL_Surface *text = TTF_RenderUTF8_Shaded(font, buf, whiteColor, blackColor);
   if(text) {
-    SDL_Rect blitrect = { x + (w - text->w)/2, y + (h - text->h)/2, 0, 0 };
+    SDL_Rect rect = { x + (w - text->w)/2, y + (h - text->h)/2, 0, 0 };
     Uint32 black = SDL_MapRGB(surface->format, 0, 0, 0);
     Uint32 white = SDL_MapRGB(surface->format, 255, 255, 255);
-    fillRect(surface, blitrect.x-h/4, y, text->w+h/2, h, white);
-    fillRect(surface, blitrect.x-h/8, y+h/8, text->w+h/4, h-h/4, black);
-    SDL_BlitSurface(text, NULL, surface, &blitrect);
+    fillRect(surface, rect.x-h/4, y, text->w+h/2, h, white);
+    fillRect(surface, rect.x-h/8, y+h/8, text->w+h/4, h-h/4, black);
+    SDL_BlitSurface(text, NULL, surface, &rect);
     SDL_FreeSurface(text);
   } else {
     fprintf(stderr, "TTF_Render: %s\n", TTF_GetError());
   }
+  TTF_CloseFont(font);
+
+  if (mode == MODE_RGB)
+    return;
+
+  font = TTF_OpenFont("Vera.ttf", maxi(h/11, 6));
+  if(!font) {
+    fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
+    return;
+  }
+
+  text = TTF_RenderText_Shaded(font, MODE_NAME[mode], blackColor, whiteColor);
+  if (text) {
+    SDL_Rect rect = { x + (w - text->w) / 2,  y + h - h/8, 0, 0};
+    SDL_BlitSurface(text, NULL, surface, &rect);
+    SDL_FreeSurface(text);
+  }
+
   TTF_CloseFont(font);
 }
 
@@ -438,12 +486,12 @@ static void colorSubsampling(SDL_Surface *surface, int x, int y, int w, int h)
   subsampleRect(surface, x+6*w8, y, w8, h,
                 SDL_MapRGB(surface->format, 0,0,255),
                 SDL_MapRGB(surface->format, 0,255,0),
-                SDL_MapRGB(surface->format, 0,146,146));
+                SDL_MapRGB(surface->format, 0,168,168));
 
   subsampleRect(surface, x+7*w8, y, w8, h,
                 SDL_MapRGB(surface->format, 0,255,0),
                 SDL_MapRGB(surface->format, 255,0,0),
-                SDL_MapRGB(surface->format, 132,132,0));
+                SDL_MapRGB(surface->format, 155,155,0));
 
   x += m;
   // vertical lines
@@ -489,15 +537,15 @@ static inline void copyright(SDL_Surface *surface)
   SDL_Color blueColor = {0,0,255,0};
   SDL_Surface *text = TTF_RenderUTF8_Shaded(font, " Copyright © 2009-2016 Väinö Helminen ", blueColor, grayColor);
   if (text) {
-    SDL_Rect blitrect = { (surface->w - text->w)/2, surface->h - text->h, 0, 0};
-    SDL_BlitSurface(text, NULL, surface, &blitrect);
+    SDL_Rect rect = { (surface->w - text->w)/2, surface->h - text->h, 0, 0};
+    SDL_BlitSurface(text, NULL, surface, &rect);
     SDL_FreeSurface(text);
 
-    text = TTF_RenderUTF8_Shaded(font, " http://vah.dy.fi/testcard/ ", blueColor, grayColor);
+    text = TTF_RenderText_Shaded(font, " http://vah.dy.fi/testcard/ ", blueColor, grayColor);
     if (text) {
-      blitrect.x = (surface->w - text->w)/2;
-      blitrect.y = 0;
-      SDL_BlitSurface(text, NULL, surface, &blitrect);
+      rect.x = (surface->w - text->w)/2;
+      rect.y = 0;
+      SDL_BlitSurface(text, NULL, surface, &rect);
       SDL_FreeSurface(text);
     }
   }
@@ -587,15 +635,15 @@ static inline void overscan(SDL_Surface *surface)
     if(!text) {
       fprintf(stderr, "TTF_Render: %s\n", TTF_GetError());
     } else {
-      SDL_Rect blitrect = {w-w5-2-text->w, h5, 0, 0};
-      SDL_BlitSurface(text, NULL, surface, &blitrect);
+      SDL_Rect rect = {w-w5-2-text->w, h5, 0, 0};
+      SDL_BlitSurface(text, NULL, surface, &rect);
     }
     text = TTF_RenderText_Blended(font, "10%", blackColor);
     if(!text) {
       fprintf(stderr, "TTF_Render: %s\n", TTF_GetError());
     } else {
-      SDL_Rect blitrect = {w-w10-2-text->w, h10, 0, 0};
-      SDL_BlitSurface(text, NULL, surface, &blitrect);
+      SDL_Rect rect = {w-w10-2-text->w, h10, 0, 0};
+      SDL_BlitSurface(text, NULL, surface, &rect);
     }
   }
   {
@@ -604,23 +652,148 @@ static inline void overscan(SDL_Surface *surface)
     if(!text) {
       fprintf(stderr, "TTF_Render: %s\n", TTF_GetError());
     } else {
-      SDL_Rect blitrect = {w-w5-3-text->w, h5+1, 0, 0};
-      SDL_BlitSurface(text, NULL, surface, &blitrect);
+      SDL_Rect rect = {w-w5-3-text->w, h5+1, 0, 0};
+      SDL_BlitSurface(text, NULL, surface, &rect);
     }
     text = TTF_RenderText_Blended(font, "10%", yellowColor);
     if(!text) {
       fprintf(stderr, "TTF_Render: %s\n", TTF_GetError());
     } else {
-      SDL_Rect blitrect = {w-w10-3-text->w, h10+1, 0, 0};
-      SDL_BlitSurface(text, NULL, surface, &blitrect);
+      SDL_Rect rect = {w-w10-3-text->w, h10+1, 0, 0};
+      SDL_BlitSurface(text, NULL, surface, &rect);
     }
   }
 
   TTF_CloseFont(font);
 }
 
+static void toYCbCr(SDL_PixelFormat *format, Uint32 rgb, Uint8 *y, Uint8 *cb, Uint8 *cr)
+{
+  Uint8 r8, g8, b8;
+  SDL_GetRGB(rgb, format, &r8, &g8, &b8);
+  int r = r8, g = g8, b = b8;
+  *y  = (1081344 + 11966*r + 40254*g + 4064*b)>>16;
+  *cb = (8421376 + -6596*r + -22189*g + 28784*b)>>16;
+  *cr = (8421376 + 28784*r + -26145*g + -2639*b)>>16;
+}
 
-static inline void render(SDL_Surface *surface)
+static Uint32 mapYCbCr(SDL_PixelFormat *format, int y, int cb, int cr)
+{
+  y  -= 16;
+  cb -= 128;
+  cr -= 128;
+  return SDL_MapRGB(
+    format,
+    saturatei((32768 + 76309*y + 120171*cr)>>16, 0, 255),
+    saturatei((32768 + 74606*y + -13975*cb + -34925*cr)>>16, 0, 255),
+    saturatei((32768 + 74606*y + 138438*cb)>>16, 0, 255)
+  );
+}
+
+static void blur422h(Uint8* const p, const int w, const int h)
+{
+  for(int j = 0; j < h; ++j) {
+    for(int i = 0; i < w; i += 2) {
+      Sint32 v = (p[w * j + i  ] +
+                  p[w * j + i+1]) / 2;
+      p[w * j + i  ] = v;
+      p[w * j + i+1] = v;
+    }
+  }
+}
+
+static void blur422v(Uint8* const p, const int w, const int h)
+{
+  for(int j = 0; j < h; j += 2) {
+    for(int i = 0; i < w; ++i) {
+      Sint32 v = (p[w * j     + i] +
+                  p[w * (j+1) + i]) / 2;
+      p[w * j     + i] = v;
+      p[w * (j+1) + i] = v;
+    }
+  }
+}
+
+static void blur420(Uint8* const p, const int w, const int h)
+{
+  for(int j = 0; j < h; j += 2) {
+    for(int i = 0; i < w; i += 2) {
+      Sint32 v = (p[w * j     + i  ] +
+                  p[w * j     + i+1] +
+                  p[w * (j+1) + i  ] +
+                  p[w * (j+1) + i+1]) / 4;
+      p[w * j     + i  ] = v;
+      p[w * j     + i+1] = v;
+      p[w * (j+1) + i  ] = v;
+      p[w * (j+1) + i+1] = v;
+    }
+  }
+}
+
+static void simulateYCbCr(SDL_Surface *surface, int mode)
+{
+  Uint8* const tmpCb = malloc(surface->w * surface->h);
+  Uint8* const tmpCr = malloc(surface->w * surface->h);
+  if (!tmpCb || !tmpCr) {
+    fprintf(stderr, "malloc: Out of memory\n");
+    exit(EXIT_FAILURE);
+  }
+
+  if(SDL_MUSTLOCK(surface)) {
+    if(SDL_LockSurface(surface) < 0 ) {
+      fprintf(stderr, "SDL_LockSurface: %s\n", SDL_GetError());
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  Uint32 *pixels = surface->pixels;
+  Uint8 *cbp = tmpCb, *crp = tmpCr;
+  for(int j = 0; j < surface->h; ++j) {
+    for(int i = 0; i < surface->w; ++i) {
+      Uint8 y;
+      toYCbCr(surface->format, *pixels, &y, cbp++, crp++);
+      *pixels++ = y;
+    }
+    pixels += surface->pitch/4 - surface->w;
+  }
+
+  switch(mode) {
+  case MODE_YCBCR_422H:
+    blur422h(tmpCb, surface->w, surface->h);
+    blur422h(tmpCr, surface->w, surface->h);
+    break;
+  case MODE_YCBCR_422V:
+    blur422v(tmpCb, surface->w, surface->h);
+    blur422v(tmpCr, surface->w, surface->h);
+    break;
+  case MODE_YCBCR_420:
+    blur420(tmpCb, surface->w, surface->h);
+    blur420(tmpCr, surface->w, surface->h);
+    break;
+  default:
+    break;
+  }
+
+  pixels = surface->pixels;
+  cbp = tmpCb;
+  crp = tmpCr;
+  for(int j = 0; j < surface->h; ++j) {
+    for(int i = 0; i < surface->w; ++i) {
+      *pixels = mapYCbCr(surface->format, *pixels, *cbp++, *crp++);
+      ++pixels;
+    }
+    pixels += surface->pitch/4 - surface->w;
+  }
+
+  if(SDL_MUSTLOCK(surface)) {
+    SDL_UnlockSurface(surface);
+  }
+
+  free(tmpCb);
+  free(tmpCr);
+}
+
+static void render(SDL_Surface *surface, int mode)
 {
   Uint32 background = SDL_MapRGB(surface->format, 48, 48, 48);
   int x = maxi((surface->w+10)/20, (surface->h+10)/20);
@@ -634,12 +807,16 @@ static inline void render(SDL_Surface *surface)
   borders(surface, x);
   copyright(surface);
   colorSubsampling(surface, x, y + 1*h + 1*m, w, 2*h);
-  imageInfo   (surface, x, y + 5*h + 3*m, w, 2*h);
+  imageInfo   (surface, x, y + 5*h + 3*m, w, 2*h, mode);
   BWLinesBar  (surface, x, y + 10*h + 5*m, w, 2*h);
   bigCircle(surface);
   gammaTable  (surface, x, y + 3*h + 2*m, w, 2*h);
   RGBGradients(surface, x, y + 8*h + 4*m, w, 2*h);
   overscan(surface);
+  if(mode != MODE_RGB) {
+    simulateYCbCr(surface, mode);
+  }
+  SDL_Flip(surface);
 }
 
 
@@ -651,6 +828,7 @@ int main(int argc, char **argv)
   bool savebmp = false;
   bool quit = false;
   int width = -1, height = -1;
+  int mode = MODE_RGB;
   for(int i = 1; i < argc; ++i) {
     if(argv[i][0] == '-') {
       switch(argv[i][1]) {
@@ -686,7 +864,6 @@ int main(int argc, char **argv)
   }
   atexit(TTF_Quit);
 
-
   SDL_Surface *screen = setVideoMode(fullscreen, width, height, 0);
   if(!screen) {
     fprintf(stderr, "SDL_SetVideoMode: %s\n", SDL_GetError());
@@ -695,15 +872,19 @@ int main(int argc, char **argv)
   if(fullscreen) SDL_ShowCursor(0);
   SDL_WM_SetCaption("Test Card", 0);
 
-  render(screen);
-  SDL_Flip(screen);
+  render(screen, mode);
 
   for(;;) {
     if(savebmp) {
       char buf[80];
-      sprintf(buf, "%dx%d.bmp", (int)screen->w, (int)screen->h);
+      sprintf(buf, "%dx%d_%s.bmp", (int)screen->w, (int)screen->h, MODE_NAME[mode]);
+      for(int i = 0, j = 0;; ++i) {
+        char c = buf[j] = buf[i];
+        if(!c) break;
+        if(c != ' ' && c != ':') ++j;
+      }
       if(SDL_SaveBMP(screen, buf)) {
-	fprintf(stderr, "SDL_SaveBMP: %s\n", SDL_GetError());
+	fprintf(stderr, "SDL_SaveBMP(\"%s\"): %s\n", buf, SDL_GetError());
       } else {
         fprintf(stdout, "Saved a screenshot to %s\n", buf);
       }
@@ -728,21 +909,36 @@ int main(int argc, char **argv)
 	case SDLK_PLUS:
 	case SDLK_KP_PLUS:
           screen = setVideoMode(fullscreen, -1, -1, 1);
-          render(screen);
-          SDL_Flip(screen);
+          render(screen, mode);
 	  break;
 
 	case SDLK_DOWN:
 	case SDLK_MINUS:
 	case SDLK_KP_MINUS:
-	  screen = setVideoMode(fullscreen, -1, -1, -1);
-          render(screen);
-          SDL_Flip(screen);
+          screen = setVideoMode(fullscreen, -1, -1, -1);
+          render(screen, mode);
 	  break;
 
 	case SDLK_s:
 	  savebmp = true;
 	  break;
+
+        case SDLK_F1:
+          mode = MODE_RGB;
+          render(screen, mode);
+          break;
+        case SDLK_F2:
+          mode = MODE_YCBCR_444;
+          render(screen, mode);
+          break;
+        case SDLK_F3:
+          mode = mode == MODE_YCBCR_422H ? MODE_YCBCR_422V : MODE_YCBCR_422H;
+          render(screen, mode);
+          break;
+        case SDLK_F4:
+          mode = MODE_YCBCR_420;
+          render(screen, mode);
+          break;
 
 	default:
 	  break;
