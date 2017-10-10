@@ -651,6 +651,7 @@ int main(int argc, char **argv)
   bool savebmp = false;
   bool quit = false;
   int width = -1, height = -1;
+  bool fail = false;
   for(int i = 1; i < argc; ++i) {
     if(argv[i][0] == '-') {
       switch(argv[i][1]) {
@@ -669,7 +670,14 @@ int main(int argc, char **argv)
     } else if(width < 0 && sscanf(argv[i], "%dx%d", &width, &height) == 2 && width > 0 && height > 0) {
       continue;
     }
-    fprintf(stderr, "\nInvalid argument: %s\n\n"
+    fprintf(stderr, "\nInvalid argument: %s\n\n", argv[i]);
+    fail = true;
+    break;
+  }
+
+  if (fail)
+  {
+    fprintf(stderr, "\n"
             "Usage: %s [-q] [-s] [-w] [<width>x<height>]\n"
             "\t-q\tQuit immediately (use with -s)\n"
             "\t-s\tSave image as <width>x<height>.bmp\n"
@@ -680,7 +688,7 @@ int main(int argc, char **argv)
             "\tDown / -\tSwitch to a lower resolution (loops to highest)\n"
             "\ts\tSave a screenshot\n"
             "\tEsc / q\tQuit\n",
-            argv[i], argv[0]);
+            argv[0]);
     return EXIT_FAILURE;
   }
 
