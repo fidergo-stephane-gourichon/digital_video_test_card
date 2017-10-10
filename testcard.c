@@ -25,6 +25,8 @@
 #include <SDL.h>
 #include <SDL_ttf.h>
 
+static char *fontName;
+
 static inline int maxi(int a, int b)
 {
   return a < b ? b : a;
@@ -187,7 +189,7 @@ static inline void gammaTable(SDL_Surface *surface, int x, int y, int w, int h)
   x = (w - wb * (2*17+1))/2;
   if ((x&1)) x -= 1;
 
-  TTF_Font *font = TTF_OpenFont("Vera.ttf", maxi(h/5, 8));
+  TTF_Font *font = TTF_OpenFont(fontName, maxi(h/5, 8));
   if (font) {
     h -= TTF_FontLineSkip(font);
   } else {
@@ -244,7 +246,7 @@ static inline void gammaTable(SDL_Surface *surface, int x, int y, int w, int h)
 
 static inline void imageInfo(SDL_Surface *surface, int x, int y, int w, int h)
 {
-  TTF_Font *font = TTF_OpenFont("Vera.ttf", maxi(h/2, 8));
+  TTF_Font *font = TTF_OpenFont(fontName, maxi(h/2, 8));
   if(!font) {
     fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
     return;
@@ -480,7 +482,7 @@ static void colorSubsampling(SDL_Surface *surface, int x, int y, int w, int h)
 
 static inline void copyright(SDL_Surface *surface)
 {
-  TTF_Font *font = TTF_OpenFont("Vera.ttf", maxi(8, surface->w/120));
+  TTF_Font *font = TTF_OpenFont(fontName, maxi(8, surface->w/120));
   if (!font) {
     fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
     return;
@@ -576,7 +578,7 @@ static inline void overscan(SDL_Surface *surface)
   fillRect(surface, w-w10-1, h-h10-h5, 1, h5, yellow);
 
 
-  TTF_Font *font = TTF_OpenFont("Vera.ttf", maxi(8, w/60));
+  TTF_Font *font = TTF_OpenFont(fontName, maxi(8, w/60));
   if(!font) {
     fprintf(stderr, "TTF_OpenFont: %s\n", TTF_GetError());
     return;
@@ -642,6 +644,7 @@ static inline void render(SDL_Surface *surface)
   overscan(surface);
 }
 
+static char *fontName="Vera.ttf";
 
 int main(int argc, char **argv)
 {
@@ -663,6 +666,10 @@ int main(int argc, char **argv)
 	continue;
       case 'q':
 	quit = true;
+	continue;
+      case 'f':
+        if (++i>=argc) { fail = true ; break; }
+        fontName = argv[i];
 	continue;
       default:
 	break;
