@@ -669,7 +669,18 @@ int main(int argc, char **argv)
     } else if(width < 0 && sscanf(argv[i], "%dx%d", &width, &height) == 2 && width > 0 && height > 0) {
       continue;
     }
-    fprintf(stderr, "\nInvalid argument: %s\n\nUsage: %s [-q] [-s] [-w] [<width>x<height>]\n\t-q\tQuit immediately (use with -s)\n\t-s\tSave image as <width>x<height>.bmp\n\t-w\tRun in window instead of fullscreen\n\t<width>x<height> Use the given resolution instead of the highest available\n\nKeys:\tUp / +\tSwitch to a higher resolution (loops to lowest)\n\tDown / -\tSwitch to a lower resolution (loops to highest)\n\ts\tSave a screenshot\n\tEsc / q\tQuit\n", argv[i], argv[0]);
+    fprintf(stderr, "\nInvalid argument: %s\n\n"
+            "Usage: %s [-q] [-s] [-w] [<width>x<height>]\n"
+            "\t-q\tQuit immediately (use with -s)\n"
+            "\t-s\tSave image as <width>x<height>.bmp\n"
+            "\t-w\tRun in window instead of fullscreen\n"
+            "\t<width>x<height> Use the given resolution instead of the highest available\n"
+            "\n"
+            "Keys:\tUp / +\tSwitch to a higher resolution (loops to lowest)\n"
+            "\tDown / -\tSwitch to a lower resolution (loops to highest)\n"
+            "\ts\tSave a screenshot\n"
+            "\tEsc / q\tQuit\n",
+            argv[i], argv[0]);
     return EXIT_FAILURE;
   }
 
