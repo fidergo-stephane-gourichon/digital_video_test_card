@@ -1,7 +1,7 @@
 /*
  * Test Card - A test pattern generator for computer displays
  *
- * Copyright (C) 2009-2016 Väinö Helminen
+ * Copyright (C) 2009-2018 Väinö Helminen
  *
  * The main purpose of this program is to see you get an unscaled
  * perfect image on your computer display (e.g. a TV) and check how
@@ -21,10 +21,11 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <wchar.h>
 #include <math.h>
 #include <SDL.h>
 #include <SDL_ttf.h>
-
+#include <locale.h>
 
 #define MODE_RGB        0
 #define MODE_YCBCR_444  1
@@ -770,7 +771,11 @@ static void render(SDL_Surface *surface, int mode)
 
 int main(int argc, char **argv)
 {
-  fprintf(stdout, "Test Card - Copyright (C) 2009-2016 Vaino Helminen\n");
+  setlocale(LC_ALL, "");
+#ifdef _WIN32
+  _setmode(_fileno(stdout), _O_U16TEXT);
+#endif
+  fwprintf(stdout, L"Test Card v1 - Copyright (C) 2009-2018 Väinö Helminen\n");
 
   bool fullscreen = true;
   bool savebmp = false;
@@ -798,7 +803,6 @@ int main(int argc, char **argv)
     fprintf(stderr, "\nInvalid argument: %s\n\nUsage: %s [-q] [-s] [-w] [<width>x<height>]\n\t-q\tQuit immediately (use with -s)\n\t-s\tSave image as <width>x<height>.bmp\n\t-w\tRun in window instead of fullscreen\n\t<width>x<height> Use the given resolution instead of the highest available\n\nKeys:\tUp / +\tSwitch to a higher resolution (loops to lowest)\n\tDown / -\tSwitch to a lower resolution (loops to highest)\n\ts\tSave a screenshot\n\tEsc / q\tQuit\n", argv[i], argv[0]);
     return EXIT_FAILURE;
   }
-
 
   if(SDL_Init(SDL_INIT_VIDEO)) {
     fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
@@ -872,19 +876,19 @@ int main(int argc, char **argv)
 	  break;
 
         case SDLK_F1:
-          mode = MODE_RGB;
+          mode = mode == MODE_YCBCR_444 ? MODE_RGB : MODE_YCBCR_444;
           render(screen, mode);
           break;
         case SDLK_F2:
-          mode = MODE_YCBCR_444;
+          mode = mode == MODE_YCBCR_422H ? MODE_RGB : MODE_YCBCR_422H;
           render(screen, mode);
           break;
         case SDLK_F3:
-          mode = mode == MODE_YCBCR_422H ? MODE_YCBCR_422V : MODE_YCBCR_422H;
+          mode = mode == MODE_YCBCR_422V ? MODE_RGB : MODE_YCBCR_422V;
           render(screen, mode);
           break;
         case SDLK_F4:
-          mode = MODE_YCBCR_420;
+          mode = mode == MODE_YCBCR_420 ? MODE_RGB : MODE_YCBCR_420;
           render(screen, mode);
           break;
 
