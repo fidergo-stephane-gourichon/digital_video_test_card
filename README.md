@@ -1,10 +1,13 @@
-# About Test Card
+
+# Digital Video Test Card
+
+## About
 
 Test Card can generate a test pattern image at any resolution and display it either fullscreen or in a window. It is also possible to save the currently displayed image to a file.
 
 The image can be used to determine if your monitor (or e.g. a TV your computer is connected to) is displaying pixel perfect image or if it does something funky to it.
 
-# Why this repo
+## Why this repo
 
 In 2016 I came across a 3840x2160 display and used it to extend the desktop on my laptop computer.
 
@@ -16,19 +19,20 @@ It was nice but I noticed an issue: color lines that are so useful to exhibit th
 
 So I contacted the author, changed code and forked the original git repository on https://git.gizmo.dy.fi/testcard.git (no web view, just `git clone` to access it) to share modifications.
 
-# How to use interactively
+## How to use interactively
 
 Visit <http://vah.dy.fi/testcard/> for details, including keys (hint: `F1`-`F4`, `s`, `q`).
-# Extra features (compared with original)
+
+## Extra features (compared with original)
 
 * ~~Test patterns clearly smudged when subsampling is enabled.~~ now merged from original which has an interactive test
 * Option to use custom font (requested in [issues](https://github.com/fidergo-stephane-gourichon/digital_video_test_card/issues)).  Use it like this: `./testcard -f /usr/share/fonts/truetype/msttcorefonts/impact.ttf`
 
-# License
+## License
 
 Test Card is released under the [GNU General Public License, version 2](http://www.gnu.org/licenses/gpl-2.0.html).
 
-# Credits
+## Credits
 
 * Original software by Väinö Helminen published on http://vah.dy.fi/testcard/ .
 * Original git repository on https://git.gizmo.dy.fi/testcard.git (no web view, just `git clone` to access it).
