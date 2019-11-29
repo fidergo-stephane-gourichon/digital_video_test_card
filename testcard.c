@@ -820,6 +820,7 @@ int main(int argc, char **argv)
             "\t-q\tQuit immediately (use with -s)\n"
             "\t-s\tSave image as <width>x<height>.bmp\n"
             "\t-w\tRun in window instead of fullscreen\n"
+            "\t-f\tUse a specific font instead of 'Vera.ttf', try '-f /usr/share/fonts/truetype/msttcorefonts/impact.ttf'\n"
             "\t<width>x<height> Use the given resolution instead of the highest available\n"
             "\n"
             "Keys:\tUp / +\tSwitch to a higher resolution (loops to lowest)\n"

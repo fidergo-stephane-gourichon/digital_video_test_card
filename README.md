@@ -16,10 +16,13 @@ It was nice but I noticed an issue: color lines that are so useful to exhibit th
 
 So I contacted the author, changed code and forked the original git repository on https://git.gizmo.dy.fi/testcard.git (no web view, just `git clone` to access it) to share modifications.
 
+# How to use interactively
+
+Visit <http://vah.dy.fi/testcard/> for details, including keys (hint: `F1`-`F4`, `s`, `q`).
 # Extra features (compared with original)
 
-* Test patterns clearly smudged when subsampling is enabled.
-* Option to use custom font (requested in [issues](https://github.com/fidergo-stephane-gourichon/digital_video_test_card/issues))
+* ~~Test patterns clearly smudged when subsampling is enabled.~~ now merged from original which has an interactive test
+* Option to use custom font (requested in [issues](https://github.com/fidergo-stephane-gourichon/digital_video_test_card/issues)).  Use it like this: `./testcard -f /usr/share/fonts/truetype/msttcorefonts/impact.ttf`
 
 # License
 
